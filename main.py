@@ -110,7 +110,7 @@ async def main():
     for m in mensajes:
         if m.id in ya_procesados or m.id <= last_id:
             continue
-            if not m.grouped_id:
+if not m.grouped_id:
             if not (m.media or m.text):
                 last_id = m.id
                 continue
