@@ -107,10 +107,11 @@ async def main():
 
     ya_procesados = set()
 
-    for m in mensajes:
+for m in mensajes:
         if m.id in ya_procesados or m.id <= last_id:
             continue
-if not m.grouped_id:
+
+        if not m.grouped_id:
             if not (m.media or m.text):
                 last_id = m.id
                 continue
@@ -126,7 +127,6 @@ if not m.grouped_id:
                 last_id = max(x.id for x in lista_album)
                 await guardar_progreso(client, last_id)
                 await asyncio.sleep(3)
-
     logging.info("Copia TERMINADA")
 
 asyncio.run(main())
