@@ -123,10 +123,11 @@ for m in mensajes:
             lista_album = [x for x in mensajes if x.grouped_id == m.grouped_id]
             for x in lista_album:
                 ya_procesados.add(x.id)
-            if await copiar_album(client, d, lista_album):
+if await copiar_album(client, d, lista_album):
                 last_id = max(x.id for x in lista_album)
                 await guardar_progreso(client, last_id)
                 await asyncio.sleep(3)
+
     logging.info("Copia TERMINADA")
 
 asyncio.run(main())
