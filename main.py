@@ -9,14 +9,12 @@ from flask import Flask
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- DATOS DESDE VARIABLES DE ENTORNO, NUNCA EN EL CODIGO ---
 API_ID = int(os.environ.get("API_ID", "0"))
 API_HASH = os.environ.get("API_HASH", "")
 SESSION = os.environ.get("SESSION_STRING")
 CANAL_ORIGEN = os.environ.get("CANAL_ORIGEN", "Horny_J")
 GRUPO_DESTINO = int(os.environ.get("GRUPO_DESTINO", "-1003764262854"))
 TOPIC_ID = int(os.environ.get("TOPIC_ID", "752598"))
-# ------------------------------------------------------------
 
 app = Flask(__name__)
 
@@ -74,60 +72,4 @@ async def copiar_album(client, destino, lista_album):
     try:
         album_caption = lista_album[0].text if lista_album[0].text else None
         for i in range(0, len(lista_album), 10):
-            chunk = lista_album[i:i+10]
-            files = [x.media for x in chunk if x.media]
-            if files:
-                await client.send_file(destino, files, caption=album_caption if i==0 else None, reply_to=TOPIC_ID)
-                logging.info(f"Album bloque {i//10+1} enviado.")
-    except FloodWaitError as e:
-        logging.warning(f"FloodWait en Album: {e.seconds}s")
-        await asyncio.sleep(e.seconds + 5)
-    except Exception as e:
-        logging.error(f"Error en Album: {e}")
-    return True
-
-async def main():
-    client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
-    await client.start()
-    logging.info("Cliente Telethon iniciado.")
-
-    try:
-        o = await client.get_entity(CANAL_ORIGEN)
-        d = await client.get_entity(GRUPO_DESTINO)
-    except Exception as e:
-        logging.error(f"No se pudieron obtener entidades: {e}")
-        return
-
-    last_id = await cargar_progreso(client)
-    logging.info(f"ARRANCO DESDE: {last_id}")
-
-    mensajes = []
-    async for m in client.iter_messages(o, min_id=last_id, reverse=True):
-        mensajes.append(m)
-
-    ya_procesados = set()
-
-for m in mensajes:
-        if m.id in ya_procesados or m.id <= last_id:
-            continue
-
-        if not m.grouped_id:
-            if not (m.media or m.text):
-                last_id = m.id
-                continue
-            if await copiar_contenido(client, d, m):
-                last_id = m.id
-                await guardar_progreso(client, last_id)
-                await asyncio.sleep(2)
-        else:
-            lista_album = [x for x in mensajes if x.grouped_id == m.grouped_id]
-            for x in lista_album:
-                ya_procesados.add(x.id)
-if await copiar_album(client, d, lista_album):
-                last_id = max(x.id for x in lista_album)
-                await guardar_progreso(client, last_id)
-                await asyncio.sleep(3)
-
-    logging.info("Copia TERMINADA")
-
-asyncio.run(main())
+            chunk = lista
