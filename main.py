@@ -1,75 +1,78 @@
-from telethon import TelegramClient
-from telethon.sessions import StringSession
-from telethon.errors import FloodWaitError
-import asyncio
-import os
-import logging
-import threading
+from telethon import TelegramClient, events
+import asyncio, threading, os, glob
 from flask import Flask
+from telethon.sessions import StringSession
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-API_ID = int(os.environ.get("API_ID", "0"))
-API_HASH = os.environ.get("API_HASH", "")
-SESSION = os.environ.get("SESSION_STRING")
-CANAL_ORIGEN = os.environ.get("CANAL_ORIGEN", "Horny_J")
-GRUPO_DESTINO = int(os.environ.get("GRUPO_DESTINO", "-1003764262854"))
-TOPIC_ID = int(os.environ.get("TOPIC_ID", "752598"))
+API_ID = int(os.environ.get("API_ID", "32695956"))
+API_HASH = os.environ.get("API_HASH", "8d939c8130ea03c01cd9abe6a6e83d7a")
+SESSION = os.environ.get("SESSION_STRING", "")
+GRUPO = int(os.environ.get("GRUPO_DESTINO", "-1003764262854"))
+TOPIC = int(os.environ.get("TOPIC_ID", "752598"))
+CANAL = os.environ.get("CANAL_ORIGEN", "https://t.me/Horny_J")
 
 app = Flask(__name__)
-
 @app.route('/')
-def home():
-    return "Bot de Replicacion en Ejecucion."
+def home(): return "Bot vivo"
 
-def run_flask():
-    app.run(host='0.0.0.0', port=8080, debug=False)
+threading.Thread(target=lambda: app.run(host='0.0.0.0', port=10000), daemon=True).start()
 
-threading.Thread(target=run_flask, daemon=True).start()
-logging.info("Flask iniciado en 8080")
+if SESSION:
+    client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
+else:
+    s = glob.glob("*.session")
+    client = TelegramClient(s[0].replace('.session','') if s else 'sesion_nube', API_ID, API_HASH)
 
-async def cargar_progreso(client):
+async def cargar_progreso():
     try:
-        logging.info("Buscando progreso guardado...")
         async for m in client.iter_messages('me', limit=20):
             if m.text and m.text.startswith("PROGRESO_BOT:"):
-                try:
-                    return int(m.text.split(":")[1].strip())
-                except:
-                    continue
+                return int(m.text.split(":")[1].strip())
     except Exception as e:
-        logging.warning(f"No se pudo cargar progreso: {e}")
+        print(f"No se pudo cargar progreso: {e}")
     return 0
 
-async def guardar_progreso(client, last_id):
+async def guardar_progreso(last_id):
     try:
         async for m in client.iter_messages('me', limit=20):
             if m.text and m.text.startswith("PROGRESO_BOT:"):
                 await m.delete()
         await client.send_message('me', f"PROGRESO_BOT:{last_id}")
     except Exception as e:
-        logging.error(f"Error al guardar progreso: {e}")
+        print(f"Error guardando progreso: {e}")
 
-async def copiar_contenido(client, destino, mensaje):
-    while True:
+async def main():
+    await client.start()
+    print("CLIENTE CONECTADO OK")
+    o = await client.get_entity(CANAL)
+    d = await client.get_entity(GRUPO)
+    last_id = await cargar_progreso()
+    print(f"ARRANCO DESDE: {last_id}")
+    async for m in client.iter_messages(o, min_id=last_id, reverse=True):
+        if not (m.media or m.text):
+            last_id = m.id
+            continue
         try:
-            if mensaje.media:
-                await client.send_file(destino, mensaje.media, caption=mensaje.text, reply_to=TOPIC_ID)
+            if m.media:
+                await client.send_file(d, m.media, caption=m.text, reply_to=TOPIC)
             else:
-                if mensaje.text:
-                    await client.send_message(destino, mensaje.text, reply_to=TOPIC_ID)
-            return True
-        except FloodWaitError as e:
-            logging.warning(f"FloodWait: Esperando {e.seconds}s")
-            await asyncio.sleep(e.seconds + 5)
+                await client.send_message(d, m.text, reply_to=TOPIC)
+            print(f"Copiado {m.id}")
+            last_id = m.id
+            await guardar_progreso(last_id)
+            await asyncio.sleep(1)
         except Exception as e:
-            logging.error(f"Error al copiar ID {mensaje.id}: {e}")
-            await asyncio.sleep(5)
-            return False
+            print(e)
+            await asyncio.sleep(3)
+    print("HISTORIAL LISTO - EN VIVO")
+    @client.on(events.NewMessage(chats=CANAL))
+    async def h(e):
+        if not (e.message.media or e.message.text):
+            return
+        if e.message.media:
+            await client.send_file(d, e.message.media, caption=e.message.text, reply_to=TOPIC)
+        else:
+            await client.send_message(d, e.message.text, reply_to=TOPIC)
+        await guardar_progreso(e.message.id)
+    await client.run_until_disconnected()
 
-async def copiar_album(client, destino, lista_album):
-    logging.info(f"Copiando album de {len(lista_album)} archivos.")
-    try:
-        album_caption = lista_album[0].text if lista_album[0].text else None
-        for i in range(0, len(lista_album), 10):
-            chunk = lista
+asyncio.run(main())
